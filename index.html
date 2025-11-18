@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PuroCoco Pedidos</title>
+    <script src="https://unpkg.com/@supabase/supabase-js"></script>
+    <style>
+        /* --- Estilos CSS --- */
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f4f7f6;
+            --text-color: #333;
+            --border-color: #ddd;
+            --hover-color: #f0f8ff;
+            --shadow: 0 2px 5px rgba(0,0,0,0.1);
+            --color-entregado: #5cb85c;
+            --color-pendiente: #f0ad4e;
+            --chatbot-bg: #ffffff;
+            --chatbot-primary: #4a90e2;
+            --chatbot-secondary: #f1f1f1;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .filters-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 25px;
+            padding: 15px;
+            background-color: var(--secondary-color);
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-group label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .filter-group select,
+        .filter-group input[type="search"] {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+            width: 200px;
+        }
+
+        .filter-group input[type="search"] {
+            width: 300px;
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        thead {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        tbody tr {
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        tbody tr:nth-of-type(even) {
+            background-color: #fcfcfc;
+        }
+
+        tbody tr:hover {
+            background-color: var(--hover-color);
+        }
+        
+        .status-select {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        #noResultsMessage {
+            text-align: center;
+            font-size: 1.2em;
+            color: #888;
+            padding: 40px;
+            display: none;
+        }
+
+        /* Estilos para el chatbot */
+        .chatbot-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .chatbot-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--chatbot-primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.3s ease;
+        }
+
+        .chatbot-button:hover {
+            transform: scale(1.1);
+        }
+
+        .chatbot-window {
+            width: 350px;
+            height: 450px;
+            background-color: var(--chatbot-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .chatbot-header {
+            background-color: var(--chatbot-primary);
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chatbot-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .chatbot-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 10px;
+            border-radius: 10px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .bot-message {
+            background-color: var(--chatbot-secondary);
+            align-self: flex-start;
+        }
+
+        .user-message {
+            background-color: var(--chatbot-primary);
+            color: white;
+            align-self: flex-end;
+        }
+
+        .chatbot-input-container {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .chatbot-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+
+        .chatbot-send {
+            background-color: var(--chatbot-primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            margin-left: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            padding: 10px;
+            background-color: var(--chatbot-secondary);
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #888;
+            margin-right: 3px;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+
+        @media (max-width: 768px) {
+            .filters-container { flex-direction: column; align-items: stretch; }
+            .filter-group { justify-content: space-between; }
+            .filter-group select, .filter-group input[type="search"] { width: 100%; }
+            .chatbot-window { width: 90%; height: 70%; right: 5%; bottom: 80px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>PuroCoco Pedidos</h1>
+
+        <div class="filters-container">
+            <div class="filter-group">
+                <label for="timeFilter">Ver por:</label>
+                <select id="timeFilter">
+                    <option value="todos">Todos</option>
+                    <option value="dia">Día Actual</option>
+                    <option value="semana">Esta Semana</option>
+                    <option value="mes">Este Mes</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="searchInput">Buscar:</label>
+                <input type="search" id="searchInput" placeholder="Nombre, dirección o estado...">
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table id="ordersTable">
+                <thead>
+                    <tr>
+                        <th>ID Pedido</th>
+                        <th>Fecha</th>
+                        <th>Nombre del Cliente</th>
+                        <th>Dirección</th>
+                        <th>Cant. Jamaica</th>
+                        <th>Cant. Aguas</th>
+                        <th>Dev. Jamaica</th>
+                        <th>Dev. Aguas</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersTableBody">
+                    <!-- Los pedidos se insertarán aquí con JavaScript -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div id="noResultsMessage">
+            No se encontraron pedidos que coincidan con los filtros.
+        </div>
+    </div>
+
+    <!-- Chatbot -->
+    <div class="chatbot-container">
+        <div class="chatbot-window" id="chatbotWindow">
+            <div class="chatbot-header">
+                <h3>Asistente PuroCoco IA</h3>
+                <button class="chatbot-close" id="chatbotClose">×</button>
+            </div>
+            <div class="chatbot-messages" id="chatbotMessages">
+                <div class="message bot-message">
+                    ¡Hola! Soy el asistente con IA de PuroCoco. Puedo ayudarte con la aplicación y consultas sobre los datos. ¿Qué necesitas saber?
+                </div>
+            </div>
+            <div class="typing-indicator" id="typingIndicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div class="chatbot-input-container">
+                <input type="text" class="chatbot-input" id="chatbotInput" placeholder="Escribe tu pregunta...">
+                <button class="chatbot-send" id="chatbotSend">➤</button>
+            </div>
+        </div>
+        <button class="chatbot-button" id="chatbotButton">
+            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        // --- Conexión y Lógica con Supabase en Tiempo Real ---
+
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://ltyklvwksvbnadvvbwmk.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0eWtsdndrc3ZibmFkdnZid21rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTAyNjEsImV4cCI6MjA3ODY2NjI2MX0.2faUVdGS2RWi0gyjpBc7xTYSQqhFVzxiY3zw-DJx5V0';
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+
+        // --- Configuración de la API de OpenRouter (CLIENTE-SIDE - NO SEGURO) ---
+        const OPENROUTER_API_KEY = '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';
+        const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+        // Elementos del DOM
+        const ordersTableBody = document.getElementById('ordersTableBody');
+        const timeFilter = document.getElementById('timeFilter');
+        const searchInput = document.getElementById('searchInput');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+
+        // Elementos del chatbot
+        const chatbotButton = document.getElementById('chatbotButton');
+        const chatbotWindow = document.getElementById('chatbotWindow');
+        const chatbotClose = document.getElementById('chatbotClose');
+        const chatbotMessages = document.getElementById('chatbotMessages');
+        const chatbotInput = document.getElementById('chatbotInput');
+        const chatbotSend = document.getElementById('chatbotSend');
+        const typingIndicator = document.getElementById('typingIndicator');
+
+        let pedidosData = [];
+        let ordersChannel;
+
+        // --- Funciones de Supabase (sin cambios) ---
+        async function fetchOrders() {
+            const { data, error } = await supabaseClient
+                .from('pedidos')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error al obtener los pedidos:', error);
+                noResultsMessage.textContent = 'Error al cargar los datos desde la base de datos.';
+                noResultsMessage.style.display = 'block';
+                return;
+            }
+            pedidosData = data;
+            renderOrders(pedidosData);
+            filterOrders();
+        }
+
+        function setupRealtimeSubscription() {
+            ordersChannel = supabaseClient
+                .channel('pedidos-changes')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'pedidos' },
+                    (payload) => {
+                        console.log('¡Cambio recibido!', payload);
+                        const { eventType, new: newRecord, old: oldRecord } = payload;
+                        if (eventType === 'INSERT') {
+                            pedidosData.unshift(newRecord);
+                            renderSingleOrder(newRecord, true);
+                        } else if (eventType === 'UPDATE') {
+                            const index = pedidosData.findIndex(p => p.id === newRecord.id);
+                            if (index > -1) {
+                                pedidosData[index] = newRecord;
+                                updateOrderRow(newRecord);
+                            }
+                        } else if (eventType === 'DELETE') {
+                            const index = pedidosData.findIndex(p => p.id === oldRecord.id);
+                            if (index > -1) {
+                                pedidosData.splice(index, 1);
+                                removeOrderRow(oldRecord.id);
+                            }
+                        }
+                        filterOrders();
+                    }
+                )
+                .subscribe();
+        }
+
+        async function onStatusChange(event, pedidoId) {
+            const newStatus = event.target.value;
+            event.target.disabled = true;
+            const { error } = await supabaseClient
+                .from('pedidos')
+                .update({ estado: newStatus })
+                .eq('id', pedidoId);
+            if (error) {
+                console.error('Error al actualizar el estado:', error);
+                alert('No se pudo actualizar el estado. Por favor, inténtalo de nuevo.');
+                event.target.disabled = false;
+            }
+        }
+        
+        function renderSingleOrder(pedido, prepend = false) {
+            const row = document.createElement('tr');
+            row.setAttribute('data-pedido-id', pedido.id);
+            populateOrderRow(row, pedido);
+            if (prepend) {
+                ordersTableBody.prepend(row);
+            } else {
+                ordersTableBody.appendChild(row);
+            }
+        }
+        
+        function updateOrderRow(pedido) {
+            const row = document.querySelector(`tr[data-pedido-id="${pedido.id}"]`);
+            if (row) {
+                populateOrderRow(row, pedido);
+            }
+        }
+
+        function removeOrderRow(pedidoId) {
+            const row = document.querySelector(`tr[data-pedido-id="${pedidoId}"]`);
+            if (row) {
+                row.remove();
+            }
+        }
+
+        function populateOrderRow(row, pedido) {
+            const formattedDate = new Date(pedido.created_at).toISOString().slice(0, 10);
+            const estadoMap = { 'entregado': 'Entregado', 'pendiente': 'Pendiente' };
+            const estadoTexto = estadoMap[pedido.estado] || pedido.estado;
+            const searchText = `${pedido.nombre} ${pedido.direccion} ${estadoTexto}`.toLowerCase();
+            
+            row.setAttribute('data-search', searchText);
+            row.setAttribute('data-date', formattedDate);
+
+            const statusSelect = document.createElement('select');
+            statusSelect.className = 'status-select';
+            statusSelect.disabled = false;
+            
+            const optionEntregado = document.createElement('option');
+            optionEntregado.value = 'entregado';
+            optionEntregado.textContent = 'Entregado';
+            if (pedido.estado === 'entregado') {
+                optionEntregado.selected = true;
+                statusSelect.style.color = 'var(--color-entregado)';
+            }
+
+            const optionPendiente = document.createElement('option');
+            optionPendiente.value = 'pendiente';
+            optionPendiente.textContent = 'Pendiente';
+            if (pedido.estado === 'pendiente') {
+                optionPendiente.selected = true;
+                statusSelect.style.color = 'var(--color-pendiente)';
+            }
+
+            statusSelect.appendChild(optionEntregado);
+            statusSelect.appendChild(optionPendiente);
+            statusSelect.addEventListener('change', (e) => onStatusChange(e, pedido.id));
+
+            row.innerHTML = `
+                <td>${pedido.id}</td>
+                <td>${formattedDate}</td>
+                <td>${pedido.nombre}</td>
+                <td>${pedido.direccion}</td>
+                <td>${pedido.cantidad_jamaica}</td>
+                <td>${pedido.cantidad_aguas}</td>
+                <td>${pedido.devolucion_jamaica}</td>
+                <td>${pedido.devolucion_aguas}</td>
+                <td></td> 
+            `;
+            
+            row.querySelector('td:last-child').appendChild(statusSelect);
+
+            row.setAttribute('data-pedido-id', pedido.id);
+            row.setAttribute('data-search', searchText);
+            row.setAttribute('data-date', formattedDate);
+        }
+
+        function renderOrders(orders) {
+            ordersTableBody.innerHTML = ''; 
+            if (orders.length === 0) {
+                noResultsMessage.style.display = 'block';
+                return;
+            }
+            noResultsMessage.style.display = 'none';
+            orders.forEach(pedido => {
+                renderSingleOrder(pedido);
+            });
+        }
+
+        function filterOrders() {
+            const timeRange = timeFilter.value;
+            const searchTerm = searchInput.value.toLowerCase();
+            const allRows = ordersTableBody.querySelectorAll('tr');
+            let hasVisibleRows = false;
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            allRows.forEach(row => {
+                const rowDate = new Date(row.getAttribute('data-date'));
+                rowDate.setHours(0, 0, 0, 0);
+
+                let matchesTimeRange = true;
+                if (timeRange === 'dia') {
+                    matchesTimeRange = rowDate.getTime() === today.getTime();
+                } else if (timeRange === 'semana') {
+                    const weekAgo = new Date(today);
+                    weekAgo.setDate(today.getDate() - 7);
+                    matchesTimeRange = rowDate >= weekAgo;
+                } else if (timeRange === 'mes') {
+                    const monthAgo = new Date(today);
+                    monthAgo.setMonth(today.getMonth() - 1);
+                    matchesTimeRange = rowDate >= monthAgo;
+                }
+                
+                const rowSearchText = row.getAttribute('data-search');
+                const matchesSearch = rowSearchText.includes(searchTerm);
+
+                if (matchesTimeRange && matchesSearch) {
+                    row.style.display = '';
+                    hasVisibleRows = true;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            noResultsMessage.style.display = hasVisibleRows ? 'none' : 'block';
+        }
+        
+        // Event Listeners
+        timeFilter.addEventListener('change', filterOrders);
+        searchInput.addEventListener('input', filterOrders);
+
+        // --- Funcionalidad del Chatbot con IA (Llamada Directa a la API) ---
+        chatbotButton.addEventListener('click', () => {
+            chatbotWindow.style.display = chatbotWindow.style.display === 'flex' ? 'none' : 'flex';
+        });
+
+        chatbotClose.addEventListener('click', () => {
+            chatbotWindow.style.display = 'none';
+        });
+
+        async function sendMessage() {
+            const message = chatbotInput.value.trim();
+            if (message === '') return;
+
+            const userMessageEl = document.createElement('div');
+            userMessageEl.className = 'message user-message';
+            userMessageEl.textContent = message;
+            chatbotMessages.appendChild(userMessageEl);
+            chatbotInput.value = '';
+            chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+
+            typingIndicator.style.display = 'block';
+            chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+
+            // --- Construcción del Prompt para la IA ---
+            const systemPrompt = `
+Eres un asistente experto y amigable para la aplicación "PuroCoco Pedidos". Tu función es ayudar al usuario a entender la aplicación y a responder preguntas específicas sobre los datos de los pedidos.
+
+**Contexto de la Aplicación:**
+PuroCoco Pedidos es un sistema para gestionar pedidos de dos productos principales: "Jamaica" y "Aguas". Cada pedido tiene un ID, fecha, nombre del cliente, dirección, cantidades solicitadas, cantidades devueltas y un estado ("Pendiente" o "Entregado"). Los datos se actualizan en tiempo real.
+
+**Datos Actuales de la Tabla:**
+A continuación se presenta un array JSON con los pedidos que se están mostrando actualmente en la pantalla del usuario. Analiza estos datos para responder preguntas específicas.
+ ${JSON.stringify(pedidosData, null, 2)}
+
+**Instrucciones:**
+1.  Responde siempre en español.
+2.  Si la pregunta es sobre los datos (ej. "¿cuántos pedidos pendientes hay?", "¿quién pidió más jamaica?", "muestrame los pedidos de hoy"), basa tu respuesta exclusivamente en el JSON de "Datos Actuales de la Tabla".
+3.  Si la pregunta es general sobre cómo funciona la aplicación (ej. "¿cómo filtro por fecha?", "¿para qué sirve esto?"), responde de forma general basándote en el "Contexto de la Aplicación".
+4.  Sé conciso y directo. No inventes información que no esté en los datos proporcionados.
+5.  Si no puedes responder con la información disponible, di amablemente que no tienes esa información específica.
+`;
+
+            const userMessage = `Pregunta del usuario: "${message}"`;
+
+            try {
+                const response = await fetch(OPENROUTER_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': window.location.origin, // Mejor que una URL hardcodeada
+                        'X-Title': 'PuroCoco Pedidos Chatbot',
+                    },
+                    body: JSON.stringify({
+                        model: 'deepseek/deepseek-chat',
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: userMessage }
+                        ],
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Error de la API: ${response.status} - ${errorData.error.message}`);
+                }
+
+                const data = await response.json();
+                const botReply = data.choices[0].message.content;
+
+                typingIndicator.style.display = 'none';
+                
+                const botMessageEl = document.createElement('div');
+                botMessageEl.className = 'message bot-message';
+                botMessageEl.textContent = botReply;
+                chatbotMessages.appendChild(botMessageEl);
+                
+            } catch (error) {
+                console.error('Error al contactar a la IA:', error);
+                typingIndicator.style.display = 'none';
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'message bot-message';
+                errorMessage.textContent = `Lo siento, ocurrió un error: ${error.message}`;
+                chatbotMessages.appendChild(errorMessage);
+            }
+            
+            chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+        }
+
+        chatbotSend.addEventListener('click', sendMessage);
+        chatbotInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Inicialización
+        async function initialize() {
+            await fetchOrders();
+            setupRealtimeSubscription();
+        }
+        
+        initialize();
+
+        window.addEventListener('beforeunload', () => {
+            if (ordersChannel) supabaseClient.removeChannel(ordersChannel);
+        });
+
+    </script>
+
+</body>
+</html>
